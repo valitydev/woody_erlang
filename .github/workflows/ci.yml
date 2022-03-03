@@ -141,7 +141,7 @@ jobs:
 
       - name: Store CT Logs
         if: ${{ failure() && steps.run-common-test.outcome == 'failure' }}
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: ct-logs
           path: _build/test/logs
