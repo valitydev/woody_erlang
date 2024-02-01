@@ -11,11 +11,24 @@
 
 -define(DEFAULT_HANDLER_OPTS, undefined).
 
-%%
+%% OTEL
 
 -export([span_stack_put/3]).
+-export([span_stack_put/4]).
 -export([span_stack_get/3]).
+-export([span_stack_get/4]).
 -export([span_stack_pop/2]).
+-export([span_stack_pop/3]).
+
+-define(OTEL_SPANS_STACK, 'spans_ctx_stack').
+
+-type stack_key() :: term().
+-type span_key() :: atom() | binary() | string().
+-type maybe_span_ctx() :: opentelemetry:span_ctx() | undefined.
+
+-export_type([stack_key/0]).
+-export_type([span_key/0]).
+-export_type([maybe_span_ctx/0]).
 
 %%
 %% Internal API
@@ -63,20 +76,23 @@ get_rpc_reply_type(_) -> call.
 %%      woody client (or server) calls _inside_ one single process context.
 %%      Thus, use of process dictionary via `otel_ctx'.
 
--define(OTEL_SPANS_STACK, 'spans_ctx_stack').
-
--type span_key() :: atom() | binary() | string().
--type maybe_span_ctx() :: opentelemetry:span_ctx() | undefined.
-
 -spec span_stack_put(span_key(), opentelemetry:span_ctx(), otel_ctx:t()) -> otel_ctx:t().
 span_stack_put(Key, SpanCtx, Context) ->
-    Stack = otel_ctx:get_value(Context, ?OTEL_SPANS_STACK, []),
+    span_stack_put(Key, SpanCtx, Context, ?OTEL_SPANS_STACK).
+
+-spec span_stack_put(span_key(), opentelemetry:span_ctx(), otel_ctx:t(), stack_key()) -> otel_ctx:t().
+span_stack_put(Key, SpanCtx, Context, StackKey) ->
+    Stack = otel_ctx:get_value(Context, StackKey, []),
     Entry = {Key, SpanCtx, otel_tracer:current_span_ctx(Context)},
-    otel_ctx:set_value(Context, ?OTEL_SPANS_STACK, [Entry | Stack]).
+    otel_ctx:set_value(Context, StackKey, [Entry | Stack]).
 
 -spec span_stack_get(span_key(), otel_ctx:t(), maybe_span_ctx()) -> maybe_span_ctx().
 span_stack_get(Key, Context, Default) ->
-    Stack = otel_ctx:get_value(Context, ?OTEL_SPANS_STACK, []),
+    span_stack_get(Key, Context, Default, ?OTEL_SPANS_STACK).
+
+-spec span_stack_get(span_key(), otel_ctx:t(), maybe_span_ctx(), stack_key()) -> maybe_span_ctx().
+span_stack_get(Key, Context, Default, StackKey) ->
+    Stack = otel_ctx:get_value(Context, StackKey, []),
     case lists:keyfind(Key, 1, Stack) of
         false ->
             Default;
@@ -87,11 +103,16 @@ span_stack_get(Key, Context, Default) ->
 -spec span_stack_pop(span_key(), otel_ctx:t()) ->
     {ok, opentelemetry:span_ctx(), maybe_span_ctx(), otel_ctx:t()} | {error, notfound}.
 span_stack_pop(Key, Context) ->
-    Stack = otel_ctx:get_value(Context, ?OTEL_SPANS_STACK, []),
+    span_stack_pop(Key, Context, ?OTEL_SPANS_STACK).
+
+-spec span_stack_pop(span_key(), otel_ctx:t(), stack_key()) ->
+    {ok, opentelemetry:span_ctx(), maybe_span_ctx(), otel_ctx:t()} | {error, notfound}.
+span_stack_pop(Key, Context, StackKey) ->
+    Stack = otel_ctx:get_value(Context, StackKey, []),
     case lists:keytake(Key, 1, Stack) of
         false ->
             {error, notfound};
         {value, {_Key, SpanCtx, ParentSpanCtx}, Stack1} ->
-            Context1 = otel_ctx:set_value(Context, ?OTEL_SPANS_STACK, Stack1),
+            Context1 = otel_ctx:set_value(Context, StackKey, Stack1),
             {ok, SpanCtx, ParentSpanCtx, Context1}
     end.
