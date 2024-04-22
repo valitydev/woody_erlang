@@ -16,6 +16,7 @@
 -export([span_stack_put/3]).
 -export([span_stack_get/3]).
 -export([span_stack_pop/2]).
+-export([normalize_event_name/1]).
 
 %%
 %% Internal API
@@ -95,3 +96,37 @@ span_stack_pop(Key, Context) ->
             Context1 = otel_ctx:set_value(Context, ?OTEL_SPANS_STACK, Stack1),
             {ok, SpanCtx, ParentSpanCtx, Context1}
     end.
+
+%% TODO Normalize according spec:
+%%      https://github.com/open-telemetry/semantic-conventions/blob/main/docs/general/events.md
+%%
+%%      Specifically this:
+%%
+%%          Semantic conventions MUST limit names to printable Basic Latin
+%%          characters (more precisely to U+0021 .. U+007E subset of Unicode
+%%          code points). It is recommended to further limit names to the
+%%          following Unicode code points: Latin alphabet, Numeric, Underscore,
+%%          Dot (as namespace delimiter).
+-define(EVENT_NAME_FORBIDDEN_CHARS, [<<" ">>]).
+
+-spec normalize_event_name(binary() | atom()) -> opentelemetry:event_name().
+normalize_event_name(Event) when is_atom(Event) ->
+    normalize_event_name(atom_to_binary(Event, unicode));
+normalize_event_name(Event) when is_binary(Event) ->
+    binary:replace(Event, ?EVENT_NAME_FORBIDDEN_CHARS, <<$_>>, [global]).
+
+-ifdef(TEST).
+
+-include_lib("eunit/include/eunit.hrl").
+
+-spec test() -> _.
+
+-spec normalize_event_name_test_() -> _.
+normalize_event_name_test_() ->
+    [
+        ?_assertEqual(<<"client_resolve_begin">>, normalize_event_name('client resolve begin')),
+        ?_assertEqual(<<"client_resolve/begin">>, normalize_event_name('client resolve/begin')),
+        ?_assertEqual(<<"client.resolve">>, normalize_event_name('client.resolve'))
+    ].
+
+-endif.

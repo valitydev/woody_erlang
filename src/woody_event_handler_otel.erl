@@ -25,14 +25,14 @@
 
 %% Client events
 handle_event(Event, RpcID, _Meta = #{url := Url}, _Opts) when ?IS_CLIENT_INTERNAL(Event) ->
-    with_span(otel_ctx:get_current(), mk_ref(RpcID), fun(SpanCtx) ->
-        _ = otel_span:add_event(SpanCtx, atom_to_binary(Event), #{url => Url})
+    with_existing_span(otel_ctx:get_current(), mk_ref(RpcID), fun(SpanCtx) ->
+        _ = otel_span:add_event(SpanCtx, woody_util:normalize_event_name(Event), #{url => Url})
     end);
 %% Internal error handling
 handle_event(?EV_INTERNAL_ERROR, RpcID, Meta = #{error := Error, class := Class, reason := Reason}, _Opts) ->
     Stacktrace = maps:get(stack, Meta, []),
     Details = io_lib:format("~ts: ~ts", [Error, Reason]),
-    with_span(otel_ctx:get_current(), mk_ref(RpcID), fun(SpanCtx) ->
+    with_existing_span(otel_ctx:get_current(), mk_ref(RpcID), fun(SpanCtx) ->
         _ = otel_span:record_exception(SpanCtx, genlib:define(Class, error), Details, Stacktrace, #{}),
         otel_maybe_cleanup(Meta, SpanCtx)
     end);
@@ -68,7 +68,7 @@ span_end(Ctx, Key, OnBeforeEnd) ->
             ok
     end.
 
-with_span(Ctx, Key, F) ->
+with_existing_span(Ctx, Key, F) ->
     SpanCtx = woody_util:span_stack_get(Key, Ctx, otel_tracer:current_span_ctx(Ctx)),
     _ = F(SpanCtx),
     ok.
