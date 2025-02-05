@@ -55,7 +55,7 @@ get_ev_meta(#{ev_meta := Meta}) ->
     Meta.
 
 -spec add_ev_meta(woody_event_handler:meta(), st()) -> st().
-add_ev_meta(ExtraMeta, State = #{ev_meta := Meta}) ->
+add_ev_meta(ExtraMeta, #{ev_meta := Meta} = State) ->
     State#{ev_meta => maps:merge(Meta, ExtraMeta)}.
 
 -spec update_context(woody_context:ctx(), st()) -> st().

@@ -887,11 +887,13 @@ server_handled_client_timeout_test(C) ->
     Deadline = woody_deadline:from_timeout(250),
     Context = woody_context:new(Id, #{}, Deadline),
     try
-        case woody_client:call(Request, Opts, Context) of
-            _ -> error(unexpected_result)
-        end
+        _ = woody_client:call(Request, Opts, Context),
+        error(unexpected_result)
     catch
         error:{woody_error, {external, result_unknown, <<"timeout">>}} ->
+            %% NOTE Server woody event may fail to be handled before
+            %% client's error is caught
+            _ = timer:sleep(100),
             1 = server_timeout_event_handler:get_socket_errors_caught(),
             ok
     end.
@@ -1098,11 +1100,11 @@ handle_function(get_stuck_looping_weapons, _, _, _) ->
 %%
 handle_event(
     Event,
-    RpcId = #{
+    #{
         trace_id := TraceId,
         parent_id := ParentId
-    },
-    Meta = #{code := Code},
+    } = RpcId,
+    #{code := Code} = Meta,
     _
 ) when
     (TraceId =:= <<"call_pass_thru_except">> orelse
@@ -1114,7 +1116,7 @@ handle_event(
     _ = handle_proxy_event(Event, Code, TraceId, ParentId),
     log_event(Event, RpcId, Meta);
 %% Handle invocation
-handle_event(Event = ?EV_INVOKE_SERVICE_HANDLER, RpcId, Meta, _) ->
+handle_event(?EV_INVOKE_SERVICE_HANDLER = Event, RpcId, Meta, _) ->
     log_event(Event, RpcId, Meta),
     SpanCtx = otel_tracer:current_span_ctx(),
     _ = otel_span:set_attributes(SpanCtx, maps:map(fun(_Key, {Value, _Metadata}) -> Value end, otel_baggage:get_all())),
@@ -1302,9 +1304,9 @@ return_powerup(#'Powerup'{level = Level}) when Level == 0 ->
     throw(?POWERUP_FAILURE("run out"));
 return_powerup(#'Powerup'{time_left = Time}) when Time == 0 ->
     woody_error:raise(system, {internal, resource_unavailable, ?ERR_POWERUP_UNAVAILABLE});
-return_powerup(P = #'Powerup'{}) ->
+return_powerup(#'Powerup'{} = P) ->
     P;
-return_powerup(P = ?BAD_POWERUP_REPLY) ->
+return_powerup(?BAD_POWERUP_REPLY = P) ->
     P.
 
 mk_client_opts(TestCaseOpts, C) ->

@@ -3,8 +3,6 @@
 
 -module(woody_context).
 
--include("woody_defs.hrl").
-
 %% API
 -export([new/0, new/1, new/2, new/3]).
 
@@ -65,7 +63,7 @@ new(Id, Meta, Deadline) ->
     make_ctx(expand_rpc_id(Id), Meta, Deadline).
 
 -spec new_child(ctx()) -> ctx().
-new_child(Context = #{rpc_id := #{trace_id := TraceId, span_id := SpanId}}) ->
+new_child(#{rpc_id := #{trace_id := TraceId, span_id := SpanId}} = Context) ->
     Context#{rpc_id => new_rpc_id(SpanId, TraceId, new_req_id())}.
 
 -spec add_meta(ctx(), meta()) -> ctx().
@@ -151,13 +149,13 @@ get_common_name(Ctx) ->
 %% Internal functions
 %%
 -spec expand_rpc_id(woody:rpc_id() | woody:trace_id()) -> woody:rpc_id().
-expand_rpc_id(RpcId = #{}) ->
+expand_rpc_id(#{} = RpcId) ->
     RpcId;
 expand_rpc_id(TraceId) ->
     new_rpc_id(TraceId).
 
 -spec make_ctx(woody:rpc_id(), meta() | undefined, woody:deadline()) -> ctx() | no_return().
-make_ctx(RpcId = #{span_id := _, parent_id := _, trace_id := _}, Meta, Deadline) ->
+make_ctx(#{span_id := _, parent_id := _, trace_id := _} = RpcId, Meta, Deadline) ->
     _ = genlib_map:foreach(fun check_req_id_limit/2, RpcId),
     init_meta(#{rpc_id => RpcId, deadline => Deadline}, Meta);
 make_ctx(RpcId, Meta, Deadline) ->

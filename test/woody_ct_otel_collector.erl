@@ -86,11 +86,11 @@ build_trace(TraceId, Spans0) ->
     }.
 
 update_node(
-    Span = #span{parent_span_id = ParentId},
-    SpanNode = #{span := #span{span_id = ParentId}, children := Children}
+    #span{parent_span_id = ParentId} = Span,
+    #{span := #span{span_id = ParentId}, children := Children} = SpanNode
 ) ->
     SpanNode#{children => [new_span_node(Span) | Children]};
-update_node(Span, SpanNode = #{children := Children}) ->
+update_node(Span, #{children := Children} = SpanNode) ->
     SpanNode#{children => lists:map(fun(Child) -> update_node(Span, Child) end, Children)}.
 
 new_span_node(Span) ->

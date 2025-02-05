@@ -49,7 +49,7 @@ from_timeout(TimeoutMillisec) ->
     from_unixtime_ms(DeadlineMillisec).
 
 -spec to_binary(deadline()) -> binary().
-to_binary(Deadline = undefined) ->
+to_binary(undefined = Deadline) ->
     erlang:error(bad_deadline, [Deadline]);
 to_binary(Deadline) ->
     try
@@ -67,8 +67,8 @@ from_binary(Bin) ->
     Str = erlang:binary_to_list(Bin),
     try
         Millis = calendar:rfc3339_to_system_time(Str, [{unit, millisecond}]),
-        Datetime = calendar:system_time_to_universal_time(Millis, millisecond),
-        {Datetime, Millis rem 1000}
+        DateTime = calendar:system_time_to_universal_time(Millis, millisecond),
+        {DateTime, Millis rem 1000}
     catch
         error:Error ->
             erlang:error({bad_deadline, Error}, [Bin])

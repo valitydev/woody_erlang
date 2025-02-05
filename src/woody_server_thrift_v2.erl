@@ -157,7 +157,7 @@ make_server_childspec(Id, Children) ->
         type => supervisor
     }.
 
-get_socket_transport(Opts = #{ip := Ip, port := Port}) ->
+get_socket_transport(#{ip := Ip, port := Port} = Opts) ->
     Defaults = #{num_acceptors => ?DEFAULT_ACCEPTORS_POOLSIZE},
     TransportOpts = maps:merge(Defaults, maps:get(transport_opts, Opts, #{})),
     Transport = maps:get(transport, TransportOpts, ranch_tcp),
@@ -168,7 +168,7 @@ set_ranch_option(Key, Value, Opts) ->
     Opts#{Key => Value}.
 
 -spec get_cowboy_config(options()) -> protocol_opts().
-get_cowboy_config(Opts = #{event_handler := EvHandler}) ->
+get_cowboy_config(#{event_handler := EvHandler} = Opts) ->
     ok = validate_event_handler(EvHandler),
     Dispatch = get_dispatch(Opts),
     ProtocolOpts = maps:get(protocol_opts, Opts, #{}),
@@ -203,7 +203,7 @@ get_all_routes(Opts) ->
     AdditionalRoutes ++ get_routes(maps:with(?ROUTE_OPT_NAMES, Opts)).
 
 -spec get_routes(route_opts()) -> [route(state())].
-get_routes(Opts = #{handlers := Handlers}) ->
+get_routes(#{handlers := Handlers} = Opts) ->
     State0 = init_state(Opts),
     [get_route(State0, Handler) || Handler <- Handlers].
 
@@ -214,7 +214,7 @@ get_route(_, Handler) ->
     error({bad_handler_spec, Handler}).
 
 -spec init_state(route_opts()) -> state().
-init_state(Opts = #{}) ->
+init_state(#{} = Opts) ->
     #{
         ev_handler => maps:get(event_handler, Opts),
         codec => maps:get(codec, Opts, thrift_processor_codec),
@@ -232,7 +232,7 @@ compile_filter_meta() ->
 %% cowboy_http_handler callbacks
 %%
 -spec init(cowboy_req:req(), state()) -> cowboy_init_result().
-init(Req, Opts = #{ev_handler := EvHandler, handler_limits := Limits}) ->
+init(Req, #{ev_handler := EvHandler, handler_limits := Limits} = Opts) ->
     ok = set_handler_limits(Limits),
     Url = unicode:characters_to_binary(cowboy_req:uri(Req)),
     WoodyState = create_dummy_state(EvHandler),
@@ -259,13 +259,13 @@ set_handler_limits(Limits) ->
 -spec handle(cowboy_req:req(), state()) -> {ok, cowboy_req:req(), _}.
 handle(
     Req,
-    State = #{
+    #{
         url := Url,
         codec := ProcessorCodec,
         woody_state := WoodyState,
         read_body_opts := ReadBodyOpts,
         th_handler := ThriftHandler
-    }
+    } = State
 ) ->
     Req2 =
         case get_body(Req, ReadBodyOpts) of
@@ -329,7 +329,7 @@ check_accept(BadAccept, Req1, State) ->
     reply_bad_header(406, woody_util:to_binary(["wrong client accept: ", BadAccept]), Req1, State).
 
 -spec check_woody_headers(cowboy_req:req(), state()) -> check_result().
-check_woody_headers(Req, State = #{woody_state := WoodyState0}) ->
+check_woody_headers(Req, #{woody_state := WoodyState0} = State) ->
     case get_rpc_id(Req) of
         {ok, RpcId, Req1} ->
             WoodyState1 = set_cert(Req1, set_rpc_id(RpcId, WoodyState0)),
@@ -362,7 +362,7 @@ get_rpc_id(Req) ->
         )
     ).
 
-get_rpc_id(Id, Header, Acc = #{req := Req}) ->
+get_rpc_id(Id, Header, #{req := Req} = Acc) ->
     case cowboy_req:header(Header, Req) of
         undefined ->
             Acc#{Id => ?DUMMY_REQ_ID, req => Req, status => error};
@@ -370,9 +370,9 @@ get_rpc_id(Id, Header, Acc = #{req := Req}) ->
             Acc#{Id => IdVal, req => Req}
     end.
 
-check_ids(Map = #{status := error, req := Req}) ->
+check_ids(#{status := error, req := Req} = Map) ->
     {error, maps:without([req, status], Map), Req};
-check_ids(Map = #{req := Req}) ->
+check_ids(#{req := Req} = Map) ->
     {ok, maps:without([req], Map), Req}.
 
 -spec check_deadline_header(Header, Req, state()) -> cowboy_init_result() when
@@ -389,7 +389,7 @@ check_deadline_header(DeadlineBin, Req, State) ->
     end.
 
 -spec check_deadline(woody:deadline(), cowboy_req:req(), state()) -> check_result().
-check_deadline(Deadline, Req, State = #{url := Url, woody_state := WoodyState}) ->
+check_deadline(Deadline, Req, #{url := Url, woody_state := WoodyState} = State) ->
     case woody_deadline:is_reached(Deadline) of
         true ->
             _ = handle_event(
@@ -406,7 +406,7 @@ check_deadline(Deadline, Req, State = #{url := Url, woody_state := WoodyState}) 
     end.
 
 -spec check_metadata_headers(woody:http_headers(), cowboy_req:req(), state()) -> check_result().
-check_metadata_headers(Headers, Req, State = #{woody_state := WoodyState, regexp_meta := ReMeta}) ->
+check_metadata_headers(Headers, Req, #{woody_state := WoodyState, regexp_meta := ReMeta} = State) ->
     _OtelCtx = otel_propagator_text_map:extract(maps:to_list(Headers)),
     WoodyState1 = set_metadata(find_metadata(Headers, ReMeta), WoodyState),
     {ok, Req, update_woody_state(State, WoodyState1, Req)}.
@@ -481,7 +481,7 @@ do_get_body(Body, Req, Opts) ->
 
 -spec handle_request(codec(), woody:http_body(), woody:th_handler(), woody_state:st(), cowboy_req:req()) ->
     cowboy_req:req().
-handle_request(Codec, Body, ThriftHandler = {Service, _}, WoodyState, Req) ->
+handle_request(Codec, Body, {Service, _} = ThriftHandler, WoodyState, Req) ->
     ok = woody_monitor_h:set_event(?EV_SERVICE_HANDLER_RESULT, Req),
     case woody_server_codec:read_call(Codec, Body, Service) of
         {ok, SeqId, Invocation, <<>>} ->

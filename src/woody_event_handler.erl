@@ -285,7 +285,7 @@ format_meta(Event, Meta, EssentialMetaKeys) ->
         end,
     format_deadline(Meta2).
 
-format_deadline(Meta = #{deadline := Deadline}) when Deadline =/= undefined ->
+format_deadline(#{deadline := Deadline} = Meta) when Deadline =/= undefined ->
     Meta#{deadline => woody_deadline:to_binary(Deadline)};
 format_deadline(Meta) ->
     Meta.
@@ -373,7 +373,7 @@ format_event(
     format_exception({"[~p] internal error ~ts ~s:~ts", [Role, Error, Class, Reason]}, Stack);
 format_event(?EV_INTERNAL_ERROR, #{role := Role, error := Error, reason := Reason}, _Opts) ->
     {"[~p] internal error ~p, ~ts", [Role, Error, Reason]};
-format_event(?EV_TRACE, Meta = #{event := Event, role := Role, headers := Headers, body := Body}, _Opts) ->
+format_event(?EV_TRACE, #{event := Event, role := Role, headers := Headers, body := Body} = Meta, _Opts) ->
     {"[~p] trace ~s, with ~p~nheaders:~n~p~nbody:~n~ts", [Role, Event, get_url_or_code(Meta), Headers, Body]};
 format_event(?EV_TRACE, #{event := Event, role := Role}, _Opts) ->
     {"[~p] trace ~ts", [Role, Event]};
@@ -506,8 +506,8 @@ append_msg({F1, A1}, {F2, A2}) ->
 append_format(F1, {F2, A2}) ->
     {F1 ++ F2, A2}.
 
-get_url_or_code(#{url := Url}) ->
-    Url;
+get_url_or_code(#{url := URL}) ->
+    URL;
 get_url_or_code(#{code := Code}) ->
     Code.
 
@@ -1649,7 +1649,7 @@ event_severity_defaults_test_() ->
 
         %% NOTE Ensure that 'DEFAULT_HANDLER_OPTS' from woody_util is
         %% treated as default severity mapping.
-        ?_assertEqual(debug, get_event_severity(?EV_TRACE, Meta, undefined))
+        ?_assertEqual(debug, get_event_severity(?EV_TRACE, Meta, #{}))
     ].
 
 -spec event_severity_all_info_test_() -> _.

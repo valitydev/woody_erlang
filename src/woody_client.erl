@@ -50,7 +50,7 @@ call(Request, Options) ->
     {ok, woody:result()}
     | {exception, woody_error:business_error()}
     | no_return().
-call(Request, Options = #{event_handler := EvHandler}, Context) ->
+call(Request, #{event_handler := EvHandler} = Options, Context) ->
     Child = woody_context:new_child(Context),
     WoodyState = woody_state:new(client, Child, EvHandler),
     case call_safe(Request, Options, WoodyState) of

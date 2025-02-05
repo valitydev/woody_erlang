@@ -5,7 +5,7 @@
  {<<"cowlib">>,{pkg,<<"cowlib">>,<<"2.11.0">>},1},
  {<<"genlib">>,
   {git,"https://github.com/valitydev/genlib.git",
-       {ref,"f6074551d6586998e91a97ea20acb47241254ff3"}},
+       {ref,"d2324089afbbd9630e85fac554620f1de0b33dfe"}},
   0},
  {<<"gproc">>,{pkg,<<"gproc">>,<<"0.9.0">>},0},
  {<<"hackney">>,{pkg,<<"hackney">>,<<"1.18.0">>},0},
@@ -27,7 +27,7 @@
  {<<"ssl_verify_fun">>,{pkg,<<"ssl_verify_fun">>,<<"1.1.6">>},1},
  {<<"thrift">>,
   {git,"https://github.com/valitydev/thrift_erlang.git",
-       {ref,"c280ff266ae1c1906fb0dcee8320bb8d8a4a3c75"}},
+       {ref,"3a60e5dc5bbd709495024f26e100b041c3547fd9"}},
   0},
  {<<"unicode_util_compat">>,{pkg,<<"unicode_util_compat">>,<<"0.7.0">>},1}]}.
 [

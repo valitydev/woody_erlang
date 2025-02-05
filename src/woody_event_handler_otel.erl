@@ -7,9 +7,9 @@
 
 -export([handle_event/4]).
 
--spec handle_event(Event, RpcId, Meta, Opts) -> ok when
+-spec handle_event(Event, RpcID, Meta, Opts) -> ok when
     Event :: woody_event_handler:event(),
-    RpcId :: woody:rpc_id() | undefined,
+    RpcID :: woody:rpc_id() | undefined,
     Meta :: woody_event_handler:event_meta(),
     Opts :: woody:options().
 
@@ -24,12 +24,12 @@
 ).
 
 %% Client events
-handle_event(Event, RpcID, _Meta = #{url := Url}, _Opts) when ?IS_CLIENT_INTERNAL(Event) ->
+handle_event(Event, RpcID, #{url := Url} = _Meta, _Opts) when ?IS_CLIENT_INTERNAL(Event) ->
     with_span(otel_ctx:get_current(), mk_ref(RpcID), fun(SpanCtx) ->
         _ = otel_span:add_event(SpanCtx, atom_to_binary(Event), #{url => Url})
     end);
 %% Internal error handling
-handle_event(?EV_INTERNAL_ERROR, RpcID, Meta = #{error := Error, class := Class, reason := Reason}, _Opts) ->
+handle_event(?EV_INTERNAL_ERROR, RpcID, #{error := Error, class := Class, reason := Reason} = Meta, _Opts) ->
     Stacktrace = maps:get(stack, Meta, []),
     Details = io_lib:format("~ts: ~ts", [Error, Reason]),
     with_span(otel_ctx:get_current(), mk_ref(RpcID), fun(SpanCtx) ->
@@ -80,7 +80,7 @@ otel_maybe_cleanup(#{final := true}, SpanCtx) ->
 otel_maybe_cleanup(_Meta, _SpanCtx) ->
     ok.
 
-otel_maybe_erroneous_result(SpanCtx, Meta = #{status := error, result := Reason}) ->
+otel_maybe_erroneous_result(SpanCtx, #{status := error, result := Reason} = Meta) ->
     Class = maps:get(except_class, Meta, error),
     Stacktrace = maps:get(stack, Meta, []),
     _ = otel_span:record_exception(SpanCtx, Class, Reason, Stacktrace, #{}),

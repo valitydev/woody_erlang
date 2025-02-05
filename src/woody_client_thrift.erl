@@ -22,8 +22,6 @@
 
 -type thrift_client() :: term().
 
--define(WOODY_OPTS, [protocol, transport, event_handler]).
-
 %%
 %% API
 %%
@@ -53,7 +51,7 @@ call({Service = {_, ServiceName}, Function, Args}, Opts, WoodyState) ->
 %% Internal functions
 %%
 -spec make_thrift_client(woody:service(), options(), woody_state:st()) -> thrift_client().
-make_thrift_client(Service, Opts = #{url := Url}, WoodyState) ->
+make_thrift_client(Service, #{url := Url} = Opts, WoodyState) ->
     {ok, Protocol} = thrift_binary_protocol:new(
         woody_client_thrift_http_transport:new(
             Url,
@@ -103,9 +101,9 @@ log_result({error, Result}, WoodyState) ->
     log_event(?EV_SERVICE_RESULT, WoodyState, #{status => error, class => system, result => Result}).
 
 -spec map_result(woody_client:result() | {error, _ThriftError}) -> woody_client:result().
-map_result(Res = {ok, _}) ->
+map_result({ok, _} = Res) ->
     Res;
-map_result(Res = {error, {Type, _}}) when Type =:= business orelse Type =:= system ->
+map_result({error, {Type, _}} = Res) when Type =:= business orelse Type =:= system ->
     Res;
 map_result({error, ThriftError}) ->
     BinError = woody_error:format_details(ThriftError),

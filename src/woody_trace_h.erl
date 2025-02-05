@@ -27,7 +27,7 @@
 }.
 
 -spec env(options()) -> cowboy_middleware:env().
-env(Opts = #{}) ->
+env(#{} = Opts) ->
     EvHandler = maps:get(event_handler, Opts),
     #{?MODULE => EvHandler}.
 

@@ -73,11 +73,11 @@ child_spec(Options) ->
 %% Thrift transport callbacks
 %%
 -spec write(woody_transport(), binary()) -> {woody_transport(), ok}.
-write(Transport = #{write_buffer := WBuffer}, Data) when is_binary(WBuffer), is_binary(Data) ->
+write(#{write_buffer := WBuffer} = Transport, Data) when is_binary(WBuffer), is_binary(Data) ->
     {Transport#{write_buffer => <<WBuffer/binary, Data/binary>>}, ok}.
 
 -spec read(woody_transport(), pos_integer()) -> {woody_transport(), {ok, binary()}}.
-read(Transport = #{read_buffer := RBuffer}, Len) when is_binary(RBuffer) ->
+read(#{read_buffer := RBuffer} = Transport, Len) when is_binary(RBuffer) ->
     Give = min(byte_size(RBuffer), Len),
     <<Data:Give/binary, RBuffer1/binary>> = RBuffer,
     Response = {ok, Data},
@@ -86,14 +86,14 @@ read(Transport = #{read_buffer := RBuffer}, Len) when is_binary(RBuffer) ->
 
 -spec flush(woody_transport()) -> {woody_transport(), ok | error()}.
 flush(
-    Transport = #{
+    #{
         url := Url,
         woody_state := WoodyState,
         transport_options := Options,
         resolver_options := ResOpts,
         write_buffer := WBuffer,
         read_buffer := RBuffer
-    }
+    } = Transport
 ) when is_binary(WBuffer), is_binary(RBuffer) ->
     case
         handle_result(
@@ -250,7 +250,7 @@ handle_result({error, Reason}, WoodyState) when
     BinReason = woody_error:format_details(Reason),
     _ = log_event(?EV_CLIENT_RECEIVE, WoodyState, #{status => error, reason => BinReason}),
     {error, {system, {internal, resource_unavailable, BinReason}}};
-handle_result(Error = {error, {system, _}}, _) ->
+handle_result({error, {system, _}} = Error, _) ->
     Error;
 handle_result({error, Reason}, WoodyState) ->
     Details = woody_error:format_details(Reason),
@@ -258,7 +258,7 @@ handle_result({error, Reason}, WoodyState) ->
     {error, {system, {internal, result_unexpected, Details}}}.
 
 -spec get_body({ok, woody:http_body()} | {error, atom()}, woody_state:st()) -> {ok, woody:http_body()} | error().
-get_body(B = {ok, _}, _) ->
+get_body({ok, _} = B, _) ->
     B;
 get_body({error, Reason}, WoodyState) ->
     _ = log_internal_error(?ERROR_RESP_BODY, Reason, WoodyState),

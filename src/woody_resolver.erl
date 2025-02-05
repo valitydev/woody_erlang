@@ -58,7 +58,7 @@ resolve_url(Url, _WoodyState, _Opts) ->
 parse_url(Url) ->
     hackney_url:parse_url(Url).
 
-resolve_parsed_url(ParsedUrl = #hackney_url{}, WoodyState, Opts) ->
+resolve_parsed_url(#hackney_url{} = ParsedUrl, WoodyState, Opts) ->
     case inet:parse_address(ParsedUrl#hackney_url.host) of
         % url host is already an ip, move on
         {ok, IpAddr} ->
@@ -98,10 +98,10 @@ lookup_host(Host, Opts) ->
     IPFamilies = get_ip_family_preference(),
     lookup_host(Host, Opts, Deadline, IPFamilies).
 
-lookup_host(Host, Opts, Deadline, [IPFamily | IPFamilies]) ->
+lookup_host(Host, Opts, Deadline, [IpFamily | IPFamilies]) ->
     try
         Timeout = woody_deadline:to_timeout(Deadline),
-        case inet:gethostbyname(Host, IPFamily, Timeout) of
+        case inet:gethostbyname(Host, IpFamily, Timeout) of
             {ok, HostEnt} ->
                 {ok, parse_hostent(HostEnt, Opts)};
             {error, nxdomain} ->

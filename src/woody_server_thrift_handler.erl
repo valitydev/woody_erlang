@@ -96,7 +96,7 @@ handle_function(Handler, Function, Args, WoodyState) ->
 
 %% Decode request
 -spec decode_message_begin(state()) -> state() | no_return().
-decode_message_begin(State = #{th_proto := Proto}) ->
+decode_message_begin(#{th_proto := Proto} = State) ->
     case thrift_protocol:read(Proto, message_begin) of
         {Proto1, #protocol_message_begin{name = Function, type = Type, seqid = SeqId}} when
             Type =:= ?tMessageType_CALL orelse
@@ -125,7 +125,7 @@ get_function_name(Function) ->
     end.
 
 -spec get_params_type(woody:func(), state()) -> state() | no_return().
-get_params_type(Function, State = #{service := Service}) ->
+get_params_type(Function, #{service := Service} = State) ->
     try get_function_info(Service, Function, params_type) of
         ParamsType ->
             State#{function => Function, th_param_type => ParamsType}
@@ -135,12 +135,12 @@ get_params_type(Function, State = #{service := Service}) ->
 
 -spec match_reply_type(state()) -> state() | no_return().
 match_reply_type(
-    State = #{
+    #{
         service := Service,
         function := Function,
         th_msg_type := ReqType,
         woody_state := WoodyState
-    }
+    } = State
 ) ->
     ReplyType = get_function_info(Service, Function, reply_type),
     ok = match_reply_type(ReplyType, ReqType),
@@ -159,7 +159,7 @@ match_reply_type(_, _) ->
 add_ev_meta(WoodyState, Args) ->
     woody_state:add_ev_meta(#{args => Args}, WoodyState).
 
-add_ev_meta(WoodyState, Service = {_, ServiceName}, Function, ReplyType) ->
+add_ev_meta(WoodyState, {_, ServiceName} = Service, Function, ReplyType) ->
     woody_state:add_ev_meta(
         #{
             service => ServiceName,
@@ -172,7 +172,7 @@ add_ev_meta(WoodyState, Service = {_, ServiceName}, Function, ReplyType) ->
     ).
 
 -spec decode_request(state()) -> state() | no_return().
-decode_request(State = #{th_proto := Proto, th_param_type := ParamsType, woody_state := WoodyState}) ->
+decode_request(#{th_proto := Proto, th_param_type := ParamsType, woody_state := WoodyState} = State) ->
     case thrift_protocol:read(Proto, ParamsType) of
         {Proto1, {ok, Args}} ->
             State#{th_proto => Proto1, args => Args, woody_state := add_ev_meta(WoodyState, Args)};
@@ -181,7 +181,7 @@ decode_request(State = #{th_proto := Proto, th_param_type := ParamsType, woody_s
     end.
 
 -spec handle_decode_result(state()) -> {ok, reply_type(), state()}.
-handle_decode_result(State = #{th_reply_type := oneway_void}) ->
+handle_decode_result(#{th_reply_type := oneway_void} = State) ->
     {ok, oneway_void, State};
 handle_decode_result(State) ->
     {ok, call, State}.
@@ -235,11 +235,11 @@ call_handler(#{
 -spec handle_success({ok, woody:result()}, state()) -> {ok | {error, {system, woody_error:system_error()}}, state()}.
 handle_success(
     Result,
-    State = #{
+    #{
         function := Function,
         th_reply_type := ReplyType,
         woody_state := WoodyState
-    }
+    } = State
 ) ->
     _ = log_handler_result(ok, WoodyState, #{result => Result}),
     StructName = atom_to_list(Function) ++ "_result",
@@ -274,12 +274,12 @@ handle_function_catch(Class, Error, Stack, State) when Class =:= error orelse Cl
 handle_exception(
     Except,
     Stack,
-    State = #{
+    #{
         service := Service,
         function := Function,
         th_reply_type := ReplyType,
         woody_state := WoodyState
-    }
+    } = State
 ) ->
     {struct, _, XInfo} = ReplySpec = get_function_info(Service, Function, exceptions),
     {ExceptionList, FoundExcept} = lists:mapfoldl(
@@ -328,23 +328,23 @@ get_except_name(Module, Type) ->
 
 -spec handle_woody_error(woody_error:system_error() | _Except, state()) ->
     {{error, {system, woody_error:system_error()}}, state()}.
-handle_woody_error(Error, State = #{woody_state := WoodyState, th_reply_type := oneway_void}) ->
+handle_woody_error(Error, #{woody_state := WoodyState, th_reply_type := oneway_void} = State) ->
     log_handler_result(error, WoodyState, #{class => system, result => Error, ignore => true}),
     {{error, {system, Error}}, State};
-handle_woody_error(Error, State = #{woody_state := WoodyState}) ->
+handle_woody_error(Error, #{woody_state := WoodyState} = State) ->
     log_handler_result(error, WoodyState, #{class => system, result => Error, ignore => false}),
     {{error, {system, Error}}, State}.
 
 -spec handle_internal_error(_Error, woody_error:erlang_except(), woody_error:stack(), state()) ->
     {{error, {system, {internal, woody_error:source(), woody_error:details()}}}, state()}.
-handle_internal_error(Error, ExcClass, Stack, State = #{woody_state := WoodyState, th_reply_type := oneway_void}) ->
+handle_internal_error(Error, ExcClass, Stack, #{woody_state := WoodyState, th_reply_type := oneway_void} = State) ->
     log_handler_result(
         error,
         WoodyState,
         #{class => system, result => Error, except_class => ExcClass, stack => Stack, ignore => true}
     ),
     {{error, {system, {internal, result_unexpected, <<>>}}}, State};
-handle_internal_error(Error, ExcClass, Stack, State = #{woody_state := WoodyState}) ->
+handle_internal_error(Error, ExcClass, Stack, #{woody_state := WoodyState} = State) ->
     log_handler_result(
         error,
         WoodyState,
@@ -363,13 +363,13 @@ handle_internal_error(Error, ExcClass, Stack, State = #{woody_state := WoodyStat
 encode_reply(
     Status,
     Reply,
-    State = #{
+    #{
         th_proto := Proto,
         function := Function,
         th_msg_type := ReplyMessageType,
         th_seqid := SeqId,
         woody_state := WoodyState
-    }
+    } = State
 ) ->
     try
         StartMessage = #protocol_message_begin{
@@ -402,7 +402,7 @@ handle_result(ok, Reply, _) ->
     {ok, Reply};
 handle_result({error, {business, ExceptName}}, Except, _) ->
     {error, {business, {ExceptName, Except}}};
-handle_result(Error = {error, _}, _, _) ->
+handle_result({error, _} = Error, _, _) ->
     Error.
 
 get_function_info({Module, Service}, Function, Info) ->

@@ -212,7 +212,7 @@ calc_timeouts(Timeout) ->
 append_connect_opts(Options, ConnectOpts) ->
     Options#{connect_options => maps:get(connect_options, Options, []) ++ ConnectOpts}.
 
-set_tls_overrides(Options = #{ssl_options := _}, _OrigUrl) ->
+set_tls_overrides(#{ssl_options := _} = Options, _OrigUrl) ->
     Options;
 set_tls_overrides(Options, #hackney_url{scheme = https, host = OrigHost}) ->
     % NOTE
@@ -306,7 +306,7 @@ handle_response({error, Reason}, WoodyState) when
     BinReason = woody_error:format_details(Reason),
     _ = log_event(?EV_CLIENT_RECEIVE, WoodyState, #{status => error, reason => BinReason}),
     {error, {system, {internal, resource_unavailable, BinReason}}};
-handle_response(Error = {error, {system, _}}, _) ->
+handle_response({error, {system, _}} = Error, _) ->
     Error;
 handle_response({error, Reason}, WoodyState) ->
     Details = woody_error:format_details(Reason),
@@ -384,7 +384,7 @@ get_header_value(Name, Headers) ->
 
 -spec get_body({ok, woody:http_body()} | {error, atom()}, woody_state:st()) ->
     {ok, woody:http_body()} | {error, {system, woody_error:system_error()}}.
-get_body(B = {ok, _}, _) ->
+get_body({ok, _} = B, _) ->
     B;
 get_body({error, Reason}, WoodyState) ->
     _ = log_internal_error(?ERROR_RESP_BODY, Reason, WoodyState),
@@ -398,9 +398,9 @@ log_result({error, Result}, WoodyState) ->
     log_event(?EV_SERVICE_RESULT, WoodyState, #{status => error, class => system, result => Result}).
 
 -spec map_result(woody_client:result() | {error, _ThriftError}) -> woody_client:result().
-map_result(Res = {ok, _}) ->
+map_result({ok, _} = Res) ->
     Res;
-map_result(Res = {error, {Type, _}}) when Type =:= business orelse Type =:= system ->
+map_result({error, {Type, _}} = Res) when Type =:= business orelse Type =:= system ->
     Res;
 map_result({error, ThriftError}) ->
     BinError = woody_error:format_details(ThriftError),
