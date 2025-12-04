@@ -101,3 +101,39 @@ opaque_to_woody_context([1, RPCID]) ->
 
 opaque_to_woody_rpc_id([SpanID, TraceID, ParentID]) ->
     #{span_id => SpanID, trace_id => TraceID, parent_id => ParentID}.
+
+-ifdef(TEST).
+-include_lib("eunit/include/eunit.hrl").
+
+-type testgen() :: {_ID, fun(() -> _)}.
+-spec test() -> _.
+
+-define(IS_SAMPLED, 1).
+-define(NOT_SAMPLED, 0).
+-define(OTEL_CTX(IsSampled),
+    otel_tracer:set_current_span(
+        otel_ctx:new(),
+        (otel_tracer_noop:noop_span_ctx())#span_ctx{
+            trace_id = otel_id_generator:generate_trace_id(),
+            span_id = otel_id_generator:generate_span_id(),
+            is_valid = true,
+            is_remote = true,
+            is_recording = false,
+            trace_flags = IsSampled
+        }
+    )
+).
+
+-spec choose_viable_otel_ctx_test_() -> [testgen()].
+choose_viable_otel_ctx_test_() ->
+    A = ?OTEL_CTX(?IS_SAMPLED),
+    B = ?OTEL_CTX(?NOT_SAMPLED),
+    [
+        ?_assertEqual(A, choose_viable_otel_ctx(A, B)),
+        ?_assertEqual(A, choose_viable_otel_ctx(B, A)),
+        ?_assertEqual(A, choose_viable_otel_ctx(A, otel_ctx:new())),
+        ?_assertEqual(B, choose_viable_otel_ctx(otel_ctx:new(), B)),
+        ?_assertEqual(otel_ctx:new(), choose_viable_otel_ctx(otel_ctx:new(), otel_ctx:new()))
+    ].
+
+-endif.
