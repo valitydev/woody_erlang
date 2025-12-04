@@ -5,18 +5,18 @@
 -export([encode_rpc_context/2]).
 -export([decode_rpc_context/1]).
 
--export_type([t/0]).
+-export_type([rpc_context/0]).
 
--type t() :: map().
+-type rpc_context() :: map().
 
--spec encode_rpc_context(woody_context:ctx(), otel_ctx:t()) -> t().
+-spec encode_rpc_context(woody_context:ctx(), otel_ctx:t()) -> rpc_context().
 encode_rpc_context(WoodyContext, OtelContext) ->
     #{
         <<"woody">> => woody_context_to_opaque(WoodyContext),
         <<"otel">> => pack_otel_stub(OtelContext)
     }.
 
--spec decode_rpc_context(t()) -> {woody_context:ctx(), otel_ctx:t()}.
+-spec decode_rpc_context(rpc_context()) -> {woody_context:ctx(), otel_ctx:t()}.
 decode_rpc_context(RpcContext) ->
     {decode_woody_context(RpcContext), decode_otel_context(RpcContext)}.
 
