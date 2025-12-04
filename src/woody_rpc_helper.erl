@@ -1,9 +1,12 @@
 -module(woody_rpc_helper).
 
+%% TODO Add unit testcases to assert encode/decode and viable otel context selection
+
 -include_lib("opentelemetry_api/include/opentelemetry.hrl").
 
 -export([encode_rpc_context/2]).
 -export([decode_rpc_context/1]).
+-export([attach_otel_context/1]).
 
 -export_type([rpc_context/0]).
 
@@ -20,7 +23,26 @@ encode_rpc_context(WoodyContext, OtelContext) ->
 decode_rpc_context(RpcContext) ->
     {decode_woody_context(RpcContext), decode_otel_context(RpcContext)}.
 
+-spec attach_otel_context(otel_ctx:t()) -> ok.
+attach_otel_context(OtelContext) when is_map(OtelContext) andalso map_size(OtelContext) =:= 0 ->
+    ok;
+attach_otel_context(OtelContext) when is_map(OtelContext) ->
+    _ = otel_ctx:attach(choose_viable_otel_ctx(OtelContext, otel_ctx:get_current())),
+    ok;
+attach_otel_context(_) ->
+    ok.
+
 %%
+
+%% lowest bit flags if span is sampled
+-define(IS_NOT_SAMPLED(SpanCtx), SpanCtx#span_ctx.trace_flags band 2#1 =/= 1).
+
+choose_viable_otel_ctx(NewCtx, CurrentCtx) ->
+    case {otel_tracer:current_span_ctx(NewCtx), otel_tracer:current_span_ctx(CurrentCtx)} of
+        {SpanCtx = #span_ctx{}, #span_ctx{}} when ?IS_NOT_SAMPLED(SpanCtx) -> CurrentCtx;
+        {undefined, #span_ctx{}} -> CurrentCtx;
+        {_, _} -> NewCtx
+    end.
 
 decode_woody_context(#{<<"woody">> := OpaqueWoodyContext}) ->
     opaque_to_woody_context(OpaqueWoodyContext);
