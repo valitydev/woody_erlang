@@ -39,9 +39,21 @@ attach_otel_context(_) ->
 
 choose_viable_otel_ctx(NewCtx, CurrentCtx) ->
     case {otel_tracer:current_span_ctx(NewCtx), otel_tracer:current_span_ctx(CurrentCtx)} of
-        {SpanCtx = #span_ctx{}, #span_ctx{}} when ?IS_NOT_SAMPLED(SpanCtx) -> CurrentCtx;
-        {undefined, #span_ctx{}} -> CurrentCtx;
-        {_, _} -> NewCtx
+        {#span_ctx{trace_id = TraceID}, #span_ctx{trace_id = TraceID}} ->
+            %% If both context belong to same trace, then we use one currently
+            %% attached to erlang process.
+            CurrentCtx;
+        {NewSpanCtx = #span_ctx{}, #span_ctx{}} when ?IS_NOT_SAMPLED(NewSpanCtx) ->
+            %% If new context's span is not sampled, then we choose current OTel
+            %% context.
+            CurrentCtx;
+        {undefined, #span_ctx{}} ->
+            %% If new context is empty, we give preference to current OTel
+            %% context.
+            CurrentCtx;
+        {_, _} ->
+            %% In all other cases we want provided OTel context.
+            NewCtx
     end.
 
 decode_woody_context(#{<<"woody">> := OpaqueWoodyContext}) ->
@@ -110,11 +122,12 @@ opaque_to_woody_rpc_id([SpanID, TraceID, ParentID]) ->
 
 -define(IS_SAMPLED, 1).
 -define(NOT_SAMPLED, 0).
--define(OTEL_CTX(IsSampled),
+-define(OTEL_CTX(IsSampled), ?OTEL_CTX(IsSampled, otel_id_generator:generate_trace_id())).
+-define(OTEL_CTX(IsSampled, TraceID),
     otel_tracer:set_current_span(
         otel_ctx:new(),
         (otel_tracer_noop:noop_span_ctx())#span_ctx{
-            trace_id = otel_id_generator:generate_trace_id(),
+            trace_id = TraceID,
             span_id = otel_id_generator:generate_span_id(),
             is_valid = true,
             is_remote = true,
@@ -128,12 +141,18 @@ opaque_to_woody_rpc_id([SpanID, TraceID, ParentID]) ->
 choose_viable_otel_ctx_test_() ->
     A = ?OTEL_CTX(?IS_SAMPLED),
     B = ?OTEL_CTX(?NOT_SAMPLED),
+    TraceID = otel_id_generator:generate_trace_id(),
+    C1 = ?OTEL_CTX(?IS_SAMPLED, TraceID),
+    C2 = ?OTEL_CTX(?IS_SAMPLED, TraceID),
     [
         ?_assertEqual(A, choose_viable_otel_ctx(A, B)),
         ?_assertEqual(A, choose_viable_otel_ctx(B, A)),
         ?_assertEqual(A, choose_viable_otel_ctx(A, otel_ctx:new())),
         ?_assertEqual(B, choose_viable_otel_ctx(otel_ctx:new(), B)),
-        ?_assertEqual(otel_ctx:new(), choose_viable_otel_ctx(otel_ctx:new(), otel_ctx:new()))
+        ?_assertEqual(otel_ctx:new(), choose_viable_otel_ctx(otel_ctx:new(), otel_ctx:new())),
+        ?_assertNotEqual(C1, C2),
+        ?_assertEqual(C1, choose_viable_otel_ctx(C2, C1)),
+        ?_assertEqual(C2, choose_viable_otel_ctx(C1, C2))
     ].
 
 -endif.
